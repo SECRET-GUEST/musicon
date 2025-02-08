@@ -44,7 +44,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Convertisseur audio (m4a, wav, ogg, mp4, aac, flac)</h1>
+        <h1>Convertisseur audio 🎵 (m4a, wav, ogg, mp4, aac, flac)</h1>
         <div class="drop-zone" id="dropZone">
             Glissez-déposez vos fichiers audio ici
             <br>ou<br>
@@ -77,27 +77,33 @@
     <script src="https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js"></script>
 
     <script>
-        const { FFmpeg } = FFmpeg;
-        const { toBlobURL } = FFmpeg;
-        let ffmpeg = null;
+let ffmpeg = null;
+let FFmpegInstance = null;
 
-        // Initialisation de FFmpeg
-        async function initFFmpeg() {
-            if (!ffmpeg) {
-                ffmpeg = new FFmpeg();
-                try {
-                    await ffmpeg.load({
-                        coreURL: await toBlobURL('https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js', 'text/javascript'),
-                        wasmURL: await toBlobURL('https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.wasm', 'application/wasm'),
-                    });
-                    console.log('FFmpeg chargé avec succès');
-                } catch (error) {
-                    console.error('Erreur lors du chargement de FFmpeg:', error);
-                    throw error;
-                }
-            }
-            return ffmpeg;
+// Attendez que le module FFmpeg soit chargé
+document.addEventListener('DOMContentLoaded', async () => {
+    FFmpegInstance = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js');
+    console.log('FFmpeg module chargé');
+});
+
+// Fonction d'initialisation modifiée
+async function initFFmpeg() {
+    if (!ffmpeg) {
+        const { FFmpeg } = FFmpegInstance;
+        ffmpeg = new FFmpeg();
+        try {
+            await ffmpeg.load({
+                coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js',
+                wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.wasm'
+            });
+            console.log('FFmpeg chargé avec succès');
+        } catch (error) {
+            console.error('Erreur lors du chargement de FFmpeg:', error);
+            throw error;
         }
+    }
+    return ffmpeg;
+}
 
         let convertedFiles = [];
         let selectedFiles = [];
