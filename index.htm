@@ -23,7 +23,7 @@ li { margin-top: 10px; padding: 10px; background-color: #ddd; border-radius: 5px
 </head>
 <body>
 <div class="container">
-<h1>Convertisseur audio (m4a, wav, ogg, mp4, aac, flac)</h1>
+<h1>Convertisseur audio 🎵 (m4a, wav, ogg, mp4, aac, flac)</h1>
 <div class="drop-zone" id="dropZone">
 Glissez-déposez vos fichiers audio ici
 <br>ou<br>
@@ -49,10 +49,6 @@ Conversion en cours...
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
 <script>
-console.log("Script chargé")
-document.addEventListener("DOMContentLoaded",()=>{
-console.log("DOM chargé")
-})
 let ffmpeg
 let convertedFiles=[]
 let selectedFiles=[]
@@ -61,21 +57,26 @@ const fileInput=document.getElementById("fileInput")
 const loading=document.getElementById("loading")
 const progressBar=document.getElementById("progressBar")
 const validFormats=["audio/mpeg","audio/wav","audio/ogg","audio/mp4","audio/aac","audio/flac"]
+
 dropZone.addEventListener("dragover",e=>{
 e.preventDefault()
 dropZone.classList.add("dragover")
 })
+
 dropZone.addEventListener("dragleave",()=>{
 dropZone.classList.remove("dragover")
 })
+
 dropZone.addEventListener("drop",e=>{
 e.preventDefault()
 dropZone.classList.remove("dragover")
 handleFiles(Array.from(e.dataTransfer.files))
 })
+
 fileInput.addEventListener("change",e=>{
 handleFiles(Array.from(e.target.files))
 })
+
 function handleFiles(files){
 selectedFiles=files.filter(file=>{
 return validFormats.includes(file.type)||file.name.match(/\.(mp3|wav|ogg|aac|flac|m4a)$/i)
@@ -84,18 +85,18 @@ if(selectedFiles.length===0){
 alert("Aucun fichier audio valide détecté !")
 return
 }
-console.log("Fichiers sélectionnés:",selectedFiles.map(f=>f.name).join(", "))
 }
+
 function updateProgress(p){
 progressBar.style.width=p+"%"
 }
+
 document.getElementById("convertButton").addEventListener("click",async()=>{
 if(selectedFiles.length===0){
 alert("Veuillez sélectionner des fichiers audio.")
 return
 }
 if(!ffmpeg){
-console.log("Création de ffmpeg")
 const {createFFmpeg}=FFmpeg
 ffmpeg=createFFmpeg({log:false})
 }
@@ -103,9 +104,7 @@ try{
 loading.style.display="block"
 updateProgress(0)
 if(!ffmpeg.isLoaded()){
-console.log("Chargement ffmpeg...")
 await ffmpeg.load()
-console.log("ffmpeg est chargé")
 }
 const format=document.getElementById("formatSelect").value
 const totalFiles=selectedFiles.length
@@ -113,7 +112,6 @@ for(let i=0;i<totalFiles;i++){
 const file=selectedFiles[i]
 const inputName=file.name
 const outputName=inputName.replace(/\.\w+$/, "."+format)
-console.log("Conversion de:",inputName,"en",outputName)
 const fileData=await file.arrayBuffer()
 const inputData=new Uint8Array(fileData)
 try{
@@ -135,7 +133,6 @@ document.getElementById("convertedList").appendChild(listItem)
 ffmpeg.FS("unlink",inputName)
 ffmpeg.FS("unlink",outputName)
 }catch(e){
-console.log("Erreur:",e)
 alert("Erreur lors de la conversion de "+inputName)
 }
 updateProgress(((i+1)/totalFiles)*100)
@@ -144,13 +141,13 @@ if(convertedFiles.length>1){
 document.getElementById("downloadAll").style.display="block"
 }
 }catch(e){
-console.log("Erreur générale:",e)
 alert("Une erreur est survenue lors de la conversion.")
 }finally{
 loading.style.display="none"
 updateProgress(0)
 }
 })
+
 document.getElementById("downloadAll").addEventListener("click",()=>{
 if(convertedFiles.length===0)return
 const zip=new JSZip()
