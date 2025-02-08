@@ -11,12 +11,9 @@
 
 ![HTML](https://img.shields.io/badge/HTML-orange)
 
-![ALPHA](https://img.shields.io/badge/ALPHA-red) 
+# Musicon 🎵 - Online Audio Converter  
 
-
-# Musicon 🎵 - Convertisseur Audio Web  
-
-Musicon est un **convertisseur audio en ligne** qui permet de **convertir rapidement** des fichiers audio en **MP3 ou WAV** sans installation. Il fonctionne directement dans votre navigateur grâce à **FFmpeg.wasm**.  
+Musicon is an **online audio converter** that allows you to **quickly convert** audio files to **MP3 or WAV** without installation. It runs directly in your browser using **FFmpeg.wasm**.  
 
 ---
 ---
@@ -36,48 +33,46 @@ Musicon est un **convertisseur audio en ligne** qui permet de **convertir rapide
    
 ## 🌟 Features
 
-- 🎵 **Importation** de **fichiers uniques ou dossiers entiers**  
-- 🔄 **Conversion rapide** en **MP3 ou WAV**  
-- 📥 **Téléchargement** des fichiers **individuellement ou sous forme de ZIP**  
-- 🚀 **Fonctionne sans installation** directement sur **navigateur**  
-- 📂 **Drag & drop** et **sélection de fichiers**  
+- 🎵 **Import** single files or entire folders  
+- 🔄 **Fast conversion** to **MP3 or WAV**  
+- 📥 **Download** files individually or as a ZIP archive  
+- 🚀 **No installation required**, runs directly in your browser  
+- 📂 **Drag & drop** and **file selection** support  
 
 ## 🔍 Prerequisites
 
-Aucune installation requise, il vous suffit d’un navigateur moderne :  
+No installation required, you only need a modern browser:  
 - **Google Chrome**, **Firefox**, **Edge**, **Safari**  
 
 ## 🛠️ TODO
 
-1. Ajouter d'autres formats audio (FLAC, OGG, AAC, etc.)  
-2. Intégrer une barre de progression pour la conversion  
-3. Ajouter un mode sombre  
+1. Add more audio formats (FLAC, OGG, AAC, etc.)  
+2. Implement a progress bar for conversion  
+3. Add a dark mode  
 
 ## NEWS
 
-- 🗞️ **Version 1.0.0 BETA** disponible avec support MP3/WAV !  
+- 🗞️ **Version 1.0.0 BETA** released with MP3/WAV support!  
 
+## ❓ Support & Questions  
 
-## ❓ Support & Questions
-
-Si vous avez des questions ou besoin d'aide, n'hésitez pas à **ouvrir une issue** ou à me contacter.  
+If you have any questions or need assistance, feel free to **open an issue** or contact me.  
 
 ## 💎 Recommendations  
 
-Découvrez d'autres outils utiles :  
+Discover other useful tools:  
 
-- [Barcraft](https://github.com/SECRET-GUEST/barcraft) : Créer des codes-barres/QRCodes facilement et en toute sécurité.  
-  
+- [Barcraft](https://github.com/SECRET-GUEST/barcraft) : Easily create barcodes/QRCodes safely.  
 
-📜 **Autres scripts pratiques** :  
+📜 **Other useful scripts**:  
 - [Tiny Scripts](https://github.com/SECRET-GUEST/tiny-scripts)  
 
-🎬 **Pour les animateurs 3D** :  
+🎬 **For 3D animators**:  
 - [Animation](https://github.com/SECRET-GUEST/animation)  
 
-## 📥 Installation
+## 📥 Installation  
 
-Aucune installation requise. **Ouvrez simplement la page web** et commencez à convertir vos fichiers audio ! 🚀
+No installation required. **Simply open the web page** and start converting your audio files! 🚀
 
 
 ```
@@ -90,3 +85,4 @@ Aucune installation requise. **Ouvrez simplement la page web** et commencez à c
          /   \                     /   \             /   \               /   \      /   \          /   \         /   \ /`\_`>  <_/ \  /    \      /   \          /   \               /   \      /   \     \__         \
 ________/_ __ \___________________/_ __ \___________/_ __ \______ __ ___/_ __ \____/_ __ \________/_ __ \_______/_ __ \\__/'---'\__/_/_  __ \____/_ __ \________/_ __ \_____ _______/_ __ \____/_ __ \____ __\___      )
 ```
+
