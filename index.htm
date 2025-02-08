@@ -20,7 +20,7 @@
     <div class="container">
         <h1>Musicon 🎵</h1>
         <label for="fileInput" class="file-label">Importer un fichier ou un dossier</label>
-        <input type="file" id="fileInput" multiple webkitdirectory>
+        <input type="file" id="fileInput" accept="audio/*" multiple>
         
         <select id="formatSelect">
             <option value="mp3">Convertir en MP3</option>
@@ -36,40 +36,77 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.10.0/dist/ffmpeg.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/util@0.11.0/dist/util.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js"></script>
 
     <script>
-        const { createFFmpeg, fetchFile } = FFmpeg;
-        const ffmpeg = createFFmpeg({ log: true });
+        // Configuration de FFmpeg avec CORS
+        const ffmpeg = new FFmpeg();
         let convertedFiles = [];
 
-        document.getElementById("convertButton").addEventListener("click", async () => {
-            if (!ffmpeg.isLoaded()) await ffmpeg.load();
+        const validFormats = ["audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/aac", "audio/flac"];
 
-            const files = document.getElementById("fileInput").files;
-            const format = document.getElementById("formatSelect").value;
-            if (files.length === 0) return alert("Veuillez importer des fichiers.");
+        document.getElementById("fileInput").addEventListener("change", function (event) {
+            let files = Array.from(event.target.files);
+            
+            files = files.filter(file => validFormats.includes(file.type) || file.name.match(/\.(mp3|wav|ogg|aac|flac)$/i));
 
-            for (let file of files) {
-                const inputName = file.name;
-                const outputName = inputName.replace(/\.\w+$/, `.${format}`);
-
-                ffmpeg.FS("writeFile", inputName, await fetchFile(file));
-                await ffmpeg.run("-i", inputName, outputName);
-
-                const data = ffmpeg.FS("readFile", outputName);
-                const audioBlob = new Blob([data.buffer], { type: `audio/${format}` });
-                const url = URL.createObjectURL(audioBlob);
-
-                convertedFiles.push({ name: outputName, blob: audioBlob });
-
-                const listItem = document.createElement("li");
-                listItem.innerHTML = `${outputName} <a href="${url}" download="${outputName}">📥 Télécharger</a>`;
-                document.getElementById("convertedList").appendChild(listItem);
+            if (!files.length) {
+                alert("Aucun fichier audio valide détecté !");
+                return;
             }
 
-            if (convertedFiles.length > 1) {
-                document.getElementById("downloadAll").style.display = "block";
+            for (let file of files) {
+                console.log("Fichier détecté :", file.name, file.type, file.size);
+            }
+        });
+
+        document.getElementById("convertButton").addEventListener("click", async () => {
+            try {
+                if (!ffmpeg.loaded) {
+                    await ffmpeg.load({
+                        coreURL: "/ffmpeg-core.js",
+                        wasmURL: "/ffmpeg-core.wasm",
+                    });
+                }
+
+                const files = document.getElementById("fileInput").files;
+                const format = document.getElementById("formatSelect").value;
+                if (files.length === 0) return alert("Veuillez importer des fichiers.");
+
+                for (let file of files) {
+                    const inputName = file.name;
+                    const outputName = inputName.replace(/\.\w+$/, `.${format}`);
+
+                    // Conversion du fichier en Uint8Array
+                    const fileData = await file.arrayBuffer();
+                    const inputData = new Uint8Array(fileData);
+
+                    // Écriture du fichier dans le système de fichiers virtuel
+                    await ffmpeg.writeFile(inputName, inputData);
+                    
+                    // Exécution de la conversion
+                    await ffmpeg.exec(["-i", inputName, outputName]);
+
+                    // Lecture du fichier converti
+                    const data = await ffmpeg.readFile(outputName);
+                    const audioBlob = new Blob([data.buffer], { type: `audio/${format}` });
+                    const url = URL.createObjectURL(audioBlob);
+
+                    convertedFiles.push({ name: outputName, blob: audioBlob });
+
+                    const listItem = document.createElement("li");
+                    listItem.innerHTML = `${outputName} <a href="${url}" download="${outputName}">📥 Télécharger</a>`;
+                    document.getElementById("convertedList").appendChild(listItem);
+                }
+
+                if (convertedFiles.length > 1) {
+                    document.getElementById("downloadAll").style.display = "block";
+                }
+            } catch (error) {
+                console.error("Erreur lors de la conversion :", error);
+                alert("Une erreur est survenue lors de la conversion. Veuillez réessayer.");
             }
         });
 
