@@ -27,6 +27,19 @@
         ul { list-style: none; padding: 0; }
         li { margin-top: 10px; padding: 10px; background-color: #ddd; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
         #loading { display: none; margin: 10px 0; }
+        .progress { 
+            width: 100%;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            width: 0%;
+            height: 20px;
+            background-color: #4CAF50;
+            border-radius: 4px;
+            transition: width 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body>
@@ -40,12 +53,18 @@
         </div>
         
         <select id="formatSelect">
-            <option value="mp3">Convertir en MP3</option>
             <option value="wav">Convertir en WAV</option>
+            <option value="mp3">Convertir en MP3 (320 kbps)</option>
+
         </select>
 
         <button id="convertButton">Convertir</button>
-        <div id="loading">Conversion en cours...</div>
+        <div id="loading">
+            Conversion en cours...
+            <div class="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
         
         <h2>Fichiers convertis</h2>
         <ul id="convertedList"></ul>
@@ -54,7 +73,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/util.min.js"></script>
 
     <script>
         let convertedFiles = [];
@@ -62,11 +82,12 @@
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const loading = document.getElementById('loading');
+        const progressBar = document.getElementById('progressBar');
         const validFormats = ["audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/aac", "audio/flac"];
 
         // Configuration de FFmpeg
-        const { createFFmpeg, fetchFile } = FFmpeg;
-        const ffmpeg = createFFmpeg({ log: true });
+        const { FFmpeg } = FFmpegWASM;
+        const ffmpeg = new FFmpeg();
 
         // Fonctions de drag & drop
         dropZone.addEventListener('dragover', (e) => {
@@ -102,6 +123,10 @@
             console.log("Fichiers sélectionnés:", selectedFiles.map(f => f.name).join(', '));
         }
 
+        function updateProgress(progress) {
+            progressBar.style.width = `${progress}%`;
+        }
+
         document.getElementById("convertButton").addEventListener("click", async () => {
             if (selectedFiles.length === 0) {
                 alert("Veuillez sélectionner des fichiers audio.");
@@ -110,21 +135,33 @@
 
             try {
                 loading.style.display = 'block';
-                if (!ffmpeg.isLoaded()) {
-                    await ffmpeg.load();
-                }
+                updateProgress(0);
+
+                // Chargement de FFmpeg avec le bon chemin
+                await ffmpeg.load({
+                    coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js',
+                    wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.wasm'
+                });
 
                 const format = document.getElementById("formatSelect").value;
+                const totalFiles = selectedFiles.length;
 
-                for (let file of selectedFiles) {
+                for (let i = 0; i < selectedFiles.length; i++) {
+                    const file = selectedFiles[i];
                     const inputName = file.name;
                     const outputName = inputName.replace(/\.\w+$/, `.${format}`);
 
-                    ffmpeg.FS('writeFile', inputName, await fetchFile(file));
-                    await ffmpeg.run('-i', inputName, outputName);
+                    // Lecture du fichier
+                    const fileData = await file.arrayBuffer();
+                    const inputData = new Uint8Array(fileData);
 
-                    const data = ffmpeg.FS('readFile', outputName);
-                    const audioBlob = new Blob([data.buffer], { type: `audio/${format}` });
+                    // Écriture et conversion
+                    await ffmpeg.writeFile(inputName, inputData);
+                    await ffmpeg.exec(['-i', inputName, outputName]);
+
+                    // Lecture du résultat
+                    const data = await ffmpeg.readFile(outputName);
+                    const audioBlob = new Blob([data], { type: `audio/${format}` });
                     const url = URL.createObjectURL(audioBlob);
 
                     convertedFiles.push({ name: outputName, blob: audioBlob });
@@ -136,9 +173,12 @@
                     `;
                     document.getElementById("convertedList").appendChild(listItem);
 
+                    // Mise à jour de la progression
+                    updateProgress(((i + 1) / totalFiles) * 100);
+
                     // Nettoyage
-                    ffmpeg.FS('unlink', inputName);
-                    ffmpeg.FS('unlink', outputName);
+                    await ffmpeg.deleteFile(inputName);
+                    await ffmpeg.deleteFile(outputName);
                 }
 
                 if (convertedFiles.length > 1) {
@@ -150,6 +190,7 @@
                 alert("Une erreur est survenue lors de la conversion. Veuillez réessayer.");
             } finally {
                 loading.style.display = 'none';
+                updateProgress(0);
             }
         });
 
