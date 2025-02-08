@@ -3,22 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Convertisseur Audio</title>
+    <title>Musicon - Convertisseur Audio</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
         .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; background-color: #f9f9f9; }
-        .drop-zone { 
-            padding: 40px; 
-            border: 2px dashed #007BFF; 
-            border-radius: 10px; 
-            margin-bottom: 20px;
-            background-color: #f8f9fa;
-            transition: background-color 0.3s;
-        }
-        .drop-zone.dragover { 
-            background-color: #e3f2fd;
-            border-color: #2196F3;
-        }
         .file-label { display: block; padding: 10px; background-color: #007BFF; color: white; cursor: pointer; margin-bottom: 10px; border-radius: 5px; }
         input[type="file"] { display: none; }
         button { padding: 10px; margin-top: 10px; border: none; cursor: pointer; border-radius: 5px; }
@@ -26,45 +14,21 @@
         #downloadAll { background-color: #ff9800; color: white; display: none; }
         ul { list-style: none; padding: 0; }
         li { margin-top: 10px; padding: 10px; background-color: #ddd; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
-        #loading { display: none; margin: 10px 0; }
-        .progress { 
-            width: 100%;
-            background-color: #f0f0f0;
-            border-radius: 4px;
-            margin: 10px 0;
-        }
-        .progress-bar {
-            width: 0%;
-            height: 20px;
-            background-color: #4CAF50;
-            border-radius: 4px;
-            transition: width 0.3s ease-in-out;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Convertisseur audio 🎵 (m4a, wav, ogg, mp4, aac, flac)</h1>
-        <div class="drop-zone" id="dropZone">
-            Glissez-déposez vos fichiers audio ici
-            <br>ou<br>
-            <label for="fileInput" class="file-label">Sélectionnez des fichiers</label>
-            <input type="file" id="fileInput" accept="audio/*" multiple>
-        </div>
-
+        <h1>Musicon 🎵</h1>
+        <label for="fileInput" class="file-label">Importer un fichier ou un dossier</label>
+        <input type="file" id="fileInput" accept="audio/*" multiple webkitdirectory>
+        
         <select id="formatSelect">
+            <option value="mp3">Convertir en MP3</option>
             <option value="wav">Convertir en WAV</option>
-            <option value="mp3">Convertir en MP3 (320 kbps)</option>
         </select>
 
         <button id="convertButton">Convertir</button>
-        <div id="loading">
-            Conversion en cours...
-            <div class="progress">
-                <div class="progress-bar" id="progressBar"></div>
-            </div>
-        </div>
-
+        
         <h2>Fichiers convertis</h2>
         <ul id="convertedList"></ul>
         <button id="downloadAll">Télécharger en ZIP</button>
@@ -72,158 +36,40 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
-    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/util.min.js"></script>
-    <script src="https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 
     <script>
-let ffmpeg = null;
-let FFmpegInstance = null;
-
-// Attendez que le module FFmpeg soit chargé
-document.addEventListener('DOMContentLoaded', async () => {
-    FFmpegInstance = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js');
-    console.log('FFmpeg module chargé');
-});
-
-// Fonction d'initialisation modifiée
-async function initFFmpeg() {
-    if (!ffmpeg) {
-        const { FFmpeg } = FFmpegInstance;
-        ffmpeg = new FFmpeg();
-        try {
-            await ffmpeg.load({
-                coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js',
-                wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.wasm'
-            });
-            console.log('FFmpeg chargé avec succès');
-        } catch (error) {
-            console.error('Erreur lors du chargement de FFmpeg:', error);
-            throw error;
-        }
-    }
-    return ffmpeg;
-}
-
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: true });
         let convertedFiles = [];
-        let selectedFiles = [];
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const loading = document.getElementById('loading');
-        const progressBar = document.getElementById('progressBar');
-        const validFormats = ["audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/aac", "audio/flac"];
-
-        // Fonctions de drag & drop
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('dragover');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            handleFiles(Array.from(e.dataTransfer.files));
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            handleFiles(Array.from(e.target.files));
-        });
-
-        function handleFiles(files) {
-            selectedFiles = files.filter(file => 
-                validFormats.includes(file.type) || 
-                file.name.match(/\.(mp3|wav|ogg|aac|flac|m4a)$/i)
-            );
-
-            if (selectedFiles.length === 0) {
-                alert("Aucun fichier audio valide détecté !");
-                return;
-            }
-
-            console.log("Fichiers sélectionnés:", selectedFiles.map(f => f.name).join(', '));
-        }
-
-        function updateProgress(progress) {
-            progressBar.style.width = `${progress}%`;
-        }
 
         document.getElementById("convertButton").addEventListener("click", async () => {
-            if (selectedFiles.length === 0) {
-                alert("Veuillez sélectionner des fichiers audio.");
-                return;
+            if (!ffmpeg.isLoaded()) await ffmpeg.load();
+
+            const files = document.getElementById("fileInput").files;
+            const format = document.getElementById("formatSelect").value;
+            if (files.length === 0) return alert("Veuillez importer des fichiers.");
+
+            for (let file of files) {
+                const inputName = file.name;
+                const outputName = inputName.replace(/\.\w+$/, `.${format}`);
+
+                ffmpeg.FS("writeFile", inputName, await fetchFile(file));
+                await ffmpeg.run("-i", inputName, outputName);
+
+                const data = ffmpeg.FS("readFile", outputName);
+                const audioBlob = new Blob([data.buffer], { type: `audio/${format}` });
+                const url = URL.createObjectURL(audioBlob);
+
+                convertedFiles.push({ name: outputName, blob: audioBlob });
+
+                const listItem = document.createElement("li");
+                listItem.innerHTML = `${outputName} <a href="${url}" download="${outputName}">📥 Télécharger</a>`;
+                document.getElementById("convertedList").appendChild(listItem);
             }
 
-            try {
-                loading.style.display = 'block';
-                updateProgress(0);
-
-                // Initialisation de FFmpeg
-                ffmpeg = await initFFmpeg();
-                
-                const format = document.getElementById("formatSelect").value;
-                const totalFiles = selectedFiles.length;
-
-                for (let i = 0; i < selectedFiles.length; i++) {
-                    const file = selectedFiles[i];
-                    const inputName = file.name;
-                    const outputName = inputName.replace(/\.\w+$/, `.${format}`);
-
-                    // Lecture du fichier
-                    const fileData = await file.arrayBuffer();
-                    const inputData = new Uint8Array(fileData);
-
-                    try {
-                        // Écriture et conversion
-                        await ffmpeg.writeFile(inputName, inputData);
-                        
-                        // Ajout des options de qualité pour MP3
-                        const ffmpegCommand = format === 'mp3' 
-                            ? ['-i', inputName, '-b:a', '320k', outputName]
-                            : ['-i', inputName, outputName];
-                            
-                        await ffmpeg.exec(ffmpegCommand);
-
-                        // Lecture du résultat
-                        const data = await ffmpeg.readFile(outputName);
-                        const audioBlob = new Blob([data], { type: `audio/${format}` });
-                        const url = URL.createObjectURL(audioBlob);
-
-                        convertedFiles.push({ name: outputName, blob: audioBlob });
-
-                        const listItem = document.createElement("li");
-                        listItem.innerHTML = `
-                            ${outputName} 
-                            <a href="${url}" download="${outputName}" class="file-label">📥 Télécharger</a>
-                        `;
-                        document.getElementById("convertedList").appendChild(listItem);
-
-                        // Nettoyage
-                        await ffmpeg.deleteFile(inputName);
-                        await ffmpeg.deleteFile(outputName);
-
-                    } catch (error) {
-                        console.error(`Erreur lors de la conversion de ${inputName}:`, error);
-                        alert(`Erreur lors de la conversion de ${inputName}`);
-                    }
-
-                    // Mise à jour de la progression
-                    updateProgress(((i + 1) / totalFiles) * 100);
-                }
-
-                if (convertedFiles.length > 1) {
-                    document.getElementById("downloadAll").style.display = "block";
-                }
-
-            } catch (error) {
-                console.error("Erreur lors de la conversion:", error);
-                alert("Une erreur est survenue lors de la conversion. Veuillez réessayer.");
-            } finally {
-                loading.style.display = 'none';
-                updateProgress(0);
+            if (convertedFiles.length > 1) {
+                document.getElementById("downloadAll").style.display = "block";
             }
         });
 
@@ -231,14 +77,9 @@ async function initFFmpeg() {
             const zip = new JSZip();
             convertedFiles.forEach(file => zip.file(file.name, file.blob));
 
-            zip.generateAsync({ type: "blob" })
-                .then(content => {
-                    saveAs(content, "converted_audio.zip");
-                })
-                .catch(err => {
-                    console.error("Erreur lors de la création du ZIP:", err);
-                    alert("Erreur lors de la création du fichier ZIP");
-                });
+            zip.generateAsync({ type: "blob" }).then(content => {
+                saveAs(content, "converted_audio.zip");
+            });
         });
     </script>
 </body>
