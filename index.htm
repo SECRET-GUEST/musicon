@@ -82,14 +82,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
-  <!-- IMPORTANT : on charge le build UMD global de @ffmpeg/ffmpeg -->
+  <!-- IMPORTANT : on charge la version UMD globale de @ffmpeg/ffmpeg -->
   <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
-
-  <!-- Plus besoin de "util" séparé -->
-  <!-- <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/util.min.js"></script> -->
-
-  <!-- On peut préciser la version de ffmpeg-core s’il faut (sinon il prend par défaut) -->
-  <!-- <script src="https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js"></script> -->
 
   <script>
     let ffmpeg;
@@ -146,14 +140,13 @@
         return;
       }
 
-      // Initialiser ffmpeg si pas déjà fait
+      // Initialise ffmpeg si pas déjà fait
       if (!ffmpeg) {
-        // On récupère la fonction createFFmpeg depuis l'objet global FFmpeg
-        const { createFFmpeg } = FFmpeg;
+        // Récupère la fonction createFFmpeg depuis l'objet global FFmpeg
+        const { createFFmpeg } = FFmpeg; 
         ffmpeg = createFFmpeg({
           log: false, 
-          // On peut préciser l'URL du core si besoin :
-          // corePath: 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js'
+          // corePath: 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js' // si nécessaire
         });
       }
 
