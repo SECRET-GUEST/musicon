@@ -1,132 +1,103 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Convertisseur Audio</title>
-<style>
-body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-.container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; background-color: #f9f9f9; }
-.drop-zone { padding: 40px; border: 2px dashed #007BFF; border-radius: 10px; margin-bottom: 20px; background-color: #f8f9fa; transition: background-color 0.3s; }
-.drop-zone.dragover { background-color: #e3f2fd; border-color: #2196F3; }
-.file-label { display: block; padding: 10px; background-color: #007BFF; color: white; cursor: pointer; margin-bottom: 10px; border-radius: 5px; }
-input[type="file"] { display: none; }
-button { padding: 10px; margin-top: 10px; border: none; cursor: pointer; border-radius: 5px; }
-#convertButton { background-color: #28a745; color: white; }
-#downloadAll { background-color: #ff9800; color: white; display: none; }
-ul { list-style: none; padding: 0; }
-li { margin-top: 10px; padding: 10px; background-color: #ddd; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
-#loading { display: none; margin: 10px 0; }
-.progress { width: 100%; background-color: #f0f0f0; border-radius: 4px; margin: 10px 0; }
-.progress-bar { width: 0%; height: 20px; background-color: #4CAF50; border-radius: 4px; transition: width 0.3s ease-in-out; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Convertisseur Audio avec ffmpeg.wasm</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; background-color: #f9f9f9; }
+    .file-label { display: block; padding: 10px; background-color: #007BFF; color: white; cursor: pointer; margin-bottom: 10px; border-radius: 5px; }
+    input[type="file"] { display: none; }
+    button { padding: 10px; margin-top: 10px; border: none; cursor: pointer; border-radius: 5px; }
+    #convertButton { background-color: #28a745; color: white; }
+    #downloadAll { background-color: #ff9800; color: white; display: none; }
+    ul { list-style: none; padding: 0; }
+    li { margin-top: 10px; padding: 10px; background-color: #ddd; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
+    #loading { display: none; margin: 10px 0; }
+    .progress { width: 100%; background-color: #f0f0f0; border-radius: 4px; margin: 10px 0; }
+    .progress-bar { width: 0%; height: 20px; background-color: #4CAF50; border-radius: 4px; transition: width 0.3s ease-in-out; }
+  </style>
 </head>
 <body>
-<div class="container">
-<h1>Convertisseur audio (m4a, wav, ogg, mp4, aac, flac)</h1>
-<div class="drop-zone" id="dropZone">
-Glissez-déposez vos fichiers audio ici
-<br>ou<br>
-<label for="fileInput" class="file-label">Sélectionnez des fichiers</label>
-<input type="file" id="fileInput" accept="audio/*" multiple>
-</div>
-<select id="formatSelect">
-<option value="wav">Convertir en WAV</option>
-<option value="mp3">Convertir en MP3 (320 kbps)</option>
-</select>
-<button id="convertButton">Convertir</button>
-<div id="loading">
-Conversion en cours...
-<div class="progress">
-<div class="progress-bar" id="progressBar"></div>
-</div>
-</div>
-<h2>Fichiers convertis</h2>
-<ul id="convertedList"></ul>
-<button id="downloadAll">Télécharger en ZIP</button>
-</div>
+  <div class="container">
+    <h1>Convertisseur Audio (MP3, WAV, OGG, AAC, FLAC)</h1>
+    <label for="fileInput" class="file-label">Sélectionnez des fichiers</label>
+    <input type="file" id="fileInput" accept="audio/*" multiple>
+    <select id="formatSelect">
+      <option value="wav">Convertir en WAV</option>
+      <option value="mp3">Convertir en MP3 (320 kbps)</option>
+      <option value="ogg">Convertir en OGG</option>
+      <option value="aac">Convertir en AAC</option>
+      <option value="flac">Convertir en FLAC</option>
+    </select>
+    <button id="convertButton">Convertir</button>
+    <div id="loading">Conversion en cours...</div>
+    <h2>Fichiers convertis</h2>
+    <ul id="convertedList"></ul>
+  </div>
 
-<!-- Chargement des bibliothèques -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.min.js"></script>
-<script>
-let ffmpeg;
-let convertedFiles = [];
-let selectedFiles = [];
-const dropZone = document.getElementById("dropZone");
-const fileInput = document.getElementById("fileInput");
-const loading = document.getElementById("loading");
-const progressBar = document.getElementById("progressBar");
-const validFormats = ["audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/aac", "audio/flac"];
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.9.3/dist/ffmpeg.min.js"></script>
+  <script>
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const ffmpeg = createFFmpeg({ log: true });
+    let convertedFiles = [];
 
-dropZone.addEventListener("dragover", e => {
-  e.preventDefault();
-  dropZone.classList.add("dragover");
-});
-dropZone.addEventListener("dragleave", () => { dropZone.classList.remove("dragover"); });
-dropZone.addEventListener("drop", e => {
-  e.preventDefault();
-  dropZone.classList.remove("dragover");
-  handleFiles(Array.from(e.dataTransfer.files));
-});
-fileInput.addEventListener("change", e => { handleFiles(Array.from(e.target.files)); });
+    document.getElementById("convertButton").addEventListener("click", async () => {
+      const files = document.getElementById("fileInput").files;
+      if (files.length === 0) {
+        alert("Veuillez sélectionner des fichiers audio.");
+        return;
+      }
 
-function handleFiles(files) {
-  selectedFiles = files.filter(file => validFormats.includes(file.type) || file.name.match(/\.(mp3|wav|ogg|aac|flac|m4a)$/i));
-  if (selectedFiles.length === 0) { alert("Aucun fichier audio valide détecté !"); }
-}
+      document.getElementById("loading").style.display = "block";
 
-function updateProgress(p) { progressBar.style.width = p + "%"; }
+      if (!ffmpeg.isLoaded()) {
+        await ffmpeg.load();
+      }
 
-document.getElementById("convertButton").addEventListener("click", async () => {
-  if (selectedFiles.length === 0) {
-    alert("Veuillez sélectionner des fichiers audio.");
-    return;
-  }
-  if (!ffmpeg) {
-    const { createFFmpeg } = FFmpeg;
-    ffmpeg = createFFmpeg({ log: true });
-  }
-  try {
-    loading.style.display = "block";
-    updateProgress(0);
-    if (!ffmpeg.isLoaded()) { await ffmpeg.load(); }
-    const format = document.getElementById("formatSelect").value;
-    const totalFiles = selectedFiles.length;
-    for (let i = 0; i < totalFiles; i++) {
-      const file = selectedFiles[i];
-      const inputName = file.name;
-      const outputName = inputName.replace(/\.\w+$/, "." + format);
-      const fileData = await file.arrayBuffer();
-      const inputData = new Uint8Array(fileData);
-      try {
-        ffmpeg.FS("writeFile", inputName, inputData);
-        let cmd = format === "mp3" ? ["-i", inputName, "-b:a", "320k", outputName] : ["-i", inputName, outputName];
-        await ffmpeg.run(...cmd);
-        const data = ffmpeg.FS("readFile", outputName);
-        const audioBlob = new Blob([data], { type: "audio/" + format });
-        const url = URL.createObjectURL(audioBlob);
-        convertedFiles.push({ name: outputName, blob: audioBlob });
-        let li = document.createElement("li");
-        li.innerHTML = outputName + ' <a href="' + url + '" download="' + outputName + '" class="file-label">Télécharger</a>';
-        document.getElementById("convertedList").appendChild(li);
-        ffmpeg.FS("unlink", inputName);
-        ffmpeg.FS("unlink", outputName);
-      } catch (e) { alert("Erreur lors de la conversion de " + inputName); }
-      updateProgress(((i + 1) / totalFiles) * 100);
-    }
-    if (convertedFiles.length > 1) { document.getElementById("downloadAll").style.display = "block"; }
-  } catch (e) { alert("Une erreur est survenue lors de la conversion."); }
-  finally { loading.style.display = "none"; updateProgress(0); }
-});
+      const format = document.getElementById("formatSelect").value;
+      const totalFiles = files.length;
+      
+      for (let i = 0; i < totalFiles; i++) {
+        const file = files[i];
+        const inputName = file.name;
+        const outputName = inputName.replace(/\.\w+$/, "." + format);
 
-document.getElementById("downloadAll").addEventListener("click", () => {
-  if (convertedFiles.length === 0) return;
-  const zip = new JSZip();
-  convertedFiles.forEach(f => zip.file(f.name, f.blob));
-  zip.generateAsync({ type: "blob" }).then(content => { saveAs(content, "converted_audio.zip"); }).catch(() => { alert("Erreur lors de la création du ZIP"); });
-});
-</script>
+        try {
+          ffmpeg.FS("writeFile", inputName, await fetchFile(file));
+          let cmd = ["-i", inputName, outputName];
+          if (format === "mp3") {
+            cmd = ["-i", inputName, "-b:a", "320k", outputName];
+          }
+          await ffmpeg.run(...cmd);
+          const data = ffmpeg.FS("readFile", outputName);
+
+          const audioBlob = new Blob([data.buffer], { type: "audio/" + format });
+          const url = URL.createObjectURL(audioBlob);
+          convertedFiles.push({ name: outputName, url });
+
+          ffmpeg.FS("unlink", inputName);
+          ffmpeg.FS("unlink", outputName);
+        } catch (error) {
+          alert("Erreur lors de la conversion de " + inputName);
+        }
+      }
+
+      const list = document.getElementById("convertedList");
+      list.innerHTML = "";
+      convertedFiles.forEach(file => {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = file.url;
+        a.download = file.name;
+        a.textContent = `Télécharger ${file.name}`;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+
+      document.getElementById("loading").style.display = "none";
+    });
+  </script>
 </body>
 </html>
