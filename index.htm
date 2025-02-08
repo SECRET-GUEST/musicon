@@ -51,11 +51,10 @@
             <label for="fileInput" class="file-label">Sélectionnez des fichiers</label>
             <input type="file" id="fileInput" accept="audio/*" multiple>
         </div>
-        
+
         <select id="formatSelect">
             <option value="wav">Convertir en WAV</option>
             <option value="mp3">Convertir en MP3 (320 kbps)</option>
-
         </select>
 
         <button id="convertButton">Convertir</button>
@@ -65,7 +64,7 @@
                 <div class="progress-bar" id="progressBar"></div>
             </div>
         </div>
-        
+
         <h2>Fichiers convertis</h2>
         <ul id="convertedList"></ul>
         <button id="downloadAll">Télécharger en ZIP</button>
@@ -75,8 +74,31 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
     <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/util.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js"></script>
 
     <script>
+        const { FFmpeg } = FFmpeg;
+        const { toBlobURL } = FFmpeg;
+        let ffmpeg = null;
+
+        // Initialisation de FFmpeg
+        async function initFFmpeg() {
+            if (!ffmpeg) {
+                ffmpeg = new FFmpeg();
+                try {
+                    await ffmpeg.load({
+                        coreURL: await toBlobURL('https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js', 'text/javascript'),
+                        wasmURL: await toBlobURL('https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.wasm', 'application/wasm'),
+                    });
+                    console.log('FFmpeg chargé avec succès');
+                } catch (error) {
+                    console.error('Erreur lors du chargement de FFmpeg:', error);
+                    throw error;
+                }
+            }
+            return ffmpeg;
+        }
+
         let convertedFiles = [];
         let selectedFiles = [];
         const dropZone = document.getElementById('dropZone');
@@ -84,10 +106,6 @@
         const loading = document.getElementById('loading');
         const progressBar = document.getElementById('progressBar');
         const validFormats = ["audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/aac", "audio/flac"];
-
-        // Configuration de FFmpeg
-        const { FFmpeg } = FFmpegWASM;
-        const ffmpeg = new FFmpeg();
 
         // Fonctions de drag & drop
         dropZone.addEventListener('dragover', (e) => {
@@ -112,7 +130,7 @@
         function handleFiles(files) {
             selectedFiles = files.filter(file => 
                 validFormats.includes(file.type) || 
-                file.name.match(/\.(mp3|wav|ogg|aac|flac)$/i)
+                file.name.match(/\.(mp3|wav|ogg|aac|flac|m4a)$/i)
             );
 
             if (selectedFiles.length === 0) {
@@ -137,12 +155,9 @@
                 loading.style.display = 'block';
                 updateProgress(0);
 
-                // Chargement de FFmpeg avec le bon chemin
-                await ffmpeg.load({
-                    coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.js',
-                    wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/ffmpeg-core.wasm'
-                });
-
+                // Initialisation de FFmpeg
+                ffmpeg = await initFFmpeg();
+                
                 const format = document.getElementById("formatSelect").value;
                 const totalFiles = selectedFiles.length;
 
@@ -155,30 +170,42 @@
                     const fileData = await file.arrayBuffer();
                     const inputData = new Uint8Array(fileData);
 
-                    // Écriture et conversion
-                    await ffmpeg.writeFile(inputName, inputData);
-                    await ffmpeg.exec(['-i', inputName, outputName]);
+                    try {
+                        // Écriture et conversion
+                        await ffmpeg.writeFile(inputName, inputData);
+                        
+                        // Ajout des options de qualité pour MP3
+                        const ffmpegCommand = format === 'mp3' 
+                            ? ['-i', inputName, '-b:a', '320k', outputName]
+                            : ['-i', inputName, outputName];
+                            
+                        await ffmpeg.exec(ffmpegCommand);
 
-                    // Lecture du résultat
-                    const data = await ffmpeg.readFile(outputName);
-                    const audioBlob = new Blob([data], { type: `audio/${format}` });
-                    const url = URL.createObjectURL(audioBlob);
+                        // Lecture du résultat
+                        const data = await ffmpeg.readFile(outputName);
+                        const audioBlob = new Blob([data], { type: `audio/${format}` });
+                        const url = URL.createObjectURL(audioBlob);
 
-                    convertedFiles.push({ name: outputName, blob: audioBlob });
+                        convertedFiles.push({ name: outputName, blob: audioBlob });
 
-                    const listItem = document.createElement("li");
-                    listItem.innerHTML = `
-                        ${outputName} 
-                        <a href="${url}" download="${outputName}" class="file-label">📥 Télécharger</a>
-                    `;
-                    document.getElementById("convertedList").appendChild(listItem);
+                        const listItem = document.createElement("li");
+                        listItem.innerHTML = `
+                            ${outputName} 
+                            <a href="${url}" download="${outputName}" class="file-label">📥 Télécharger</a>
+                        `;
+                        document.getElementById("convertedList").appendChild(listItem);
+
+                        // Nettoyage
+                        await ffmpeg.deleteFile(inputName);
+                        await ffmpeg.deleteFile(outputName);
+
+                    } catch (error) {
+                        console.error(`Erreur lors de la conversion de ${inputName}:`, error);
+                        alert(`Erreur lors de la conversion de ${inputName}`);
+                    }
 
                     // Mise à jour de la progression
                     updateProgress(((i + 1) / totalFiles) * 100);
-
-                    // Nettoyage
-                    await ffmpeg.deleteFile(inputName);
-                    await ffmpeg.deleteFile(outputName);
                 }
 
                 if (convertedFiles.length > 1) {
